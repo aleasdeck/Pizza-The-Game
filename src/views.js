@@ -206,3 +206,200 @@ export function portrait(seed, look, w = 18, h = 34) {
   const x = c.getContext('2d'); R(x, 0, 0, w, h, '#120d18'); person(x, 1, 3, seed, look || {});
   return c;
 }
+
+/* ---------- Иконки 8×8 для интерфейса ---------- */
+const PAL = { k: '#120d18', y: '#f6c445', Y: '#fff0a0', o: '#b8761c', w: '#ffffff', r: '#e2513b', R: '#ff9a86', g: '#74c34f', b: '#55a8e0', s: '#f4d3b5', n: '#8a5a3a', d: '#a995b5' };
+const ICONS = {
+  coin:  ['..kkkk..', '.kyyyyk.', 'kyYyyyok', 'kyYkyyok', 'kyYkyyok', 'kyyyyook', '.kyoook.', '..kkkk..'],
+  clock: ['..kkkk..', '.kwwwwk.', 'kwwkwwwk', 'kwwkwwwk', 'kwwkkkwk', 'kwwwwwwk', '.kwwwwk.', '..kkkk..'],
+  guest: ['...kk...', '..kssk..', '..kssk..', '...kk...', '.kbbbbk.', 'kbbbbbbk', 'kbbbbbbk', 'kkkkkkkk'],
+  star:  ['...kk...', '..kyyk..', 'kkkyykkk', 'kyyYyyyk', '.kyyyyk.', '..kyyk..', '.kyokyk.', '.kk..kk.'],
+  heart: ['.kk..kk.', 'kRrkkrrk', 'kRrrrrrk', 'krrrrrrk', '.krrrrk.', '..krrk..', '...kk...', '........'],
+  cross: ['kk....kk', 'krk..krk', '.krkkrk.', '..krrk..', '..krrk..', '.krkkrk.', 'krk..krk', 'kk....kk'],
+  fire:  ['...k....', '..krk...', '..krrk.k', '.krryrkk', '.kryYyrk', 'kryYYyrk', 'kryYYyrk', '.kkkkkk.'],
+  home:  ['...kk...', '..krrk..', '.krrrrk.', 'krrrrrrk', '.kwwwwk.', '.kwkkwk.', '.kwknwk.', '.kkkkkk.'],
+  cart:  ['k.......', 'kkkkkkkk', '.kbbbbk.', '.kbbbbk.', '..kkkk..', '........', '.kk..kk.', '.kk..kk.'],
+  bench: ['........', 'kkkkkkkk', 'knnnnnnk', 'kkkkkkkk', 'knnnnnnk', 'kkkkkkkk', '.k....k.', '.k....k.'],
+  crown: ['........', 'k..kk..k', 'kykyykyk', 'kyyyyyyk', 'kyrYyryk', 'kyyyyyyk', 'kkkkkkkk', '........'],
+};
+export function ico(name) {
+  const c = document.createElement('canvas'); c.width = 8; c.height = 8; c.className = 'ico px';
+  const x = c.getContext('2d');
+  (ICONS[name] || []).forEach((row, y) => [...row].forEach((ch, i) => { if (PAL[ch]) R(x, i, y, 1, 1, PAL[ch]); }));
+  return c;
+}
+
+// Лицо гостя крупным планом (голова без туловища)
+export function face(seed, look) {
+  const c = document.createElement('canvas'); c.width = 16; c.height = 14; c.className = 'px';
+  person(c.getContext('2d'), 0, 1, seed, { ...(look || {}), crown: false });
+  return c;
+}
+
+const mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+
+/* ---------- Карта города ---------- */
+export const MAP = {
+  loc: { 'Спальник': [90, 50], 'Центр': [306, 44], 'Студгородок': [82, 150], 'Промзона': [432, 146], 'Дачи': [430, 46], boss: [213, 76], pizzeria: [268, 136], shop: [326, 200], rest: [210, 190] },
+  depot: [244, 176],
+};
+const riverX = y => 170 + Math.sin(y / 37) * 8 - (y - 135) * 0.05;
+
+function bld(b, x, y, w, d, hh, o, wins) {
+  b.fillStyle = 'rgba(0,0,0,.28)'; b.fillRect(x + 3, y + 3, w, d + hh);
+  paint(b, x, y + d, w, hh, rect(w, hh), o.wall, { ol: shade(o.wall, -0.5), hi: shade(o.wall, 0.12) });
+  const sx = o.wx || 4, sy = o.wy || 4;
+  for (let wy = y + d + 2; wy + 2 < y + d + hh - 1; wy += sy) for (let wx = x + 2; wx + 2 <= x + w - 2; wx += sx) { R(b, wx, wy, 2, 2, o.win); wins.push([wx, wy]); }
+  paint(b, x, y, w, d, rect(w, d), o.roof, { ol: shade(o.roof, -0.5), hi: shade(o.roof, 0.18) });
+  if (o.door !== false) R(b, x + (w >> 1) - 1, y + d + hh - 4, 3, 3, '#2a1a10');
+}
+function tree(b, x, y, s) {
+  shadow(b, x + 2, y + s + 1, s, 2, 0.3);
+  R(b, x, y + s - 1, 2, 3, '#5a3a1a');
+  paint(b, x - s + 1, y - s, s * 2, s * 2, ell(s * 2, s * 2), '#3f8a3a', { ol: '#1e4a1e', hi: '#6ac25a', lo: '#2f6e2c' });
+}
+function lot(b, x, y, w, h) {
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) R(b, x + i, y + j, 1, 1, B4[j & 3][i & 3] > 0.3 ? '#9a9488' : '#8e887c');
+  b.strokeStyle = '#6a665c'; b.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+export function cityMap() {
+  const Wd = 480, Ht = 270, day = mk(Wd, Ht), b = day.getContext('2d');
+  const wins = [], chimneys = [], lamps = [];
+  for (let y = 0; y < Ht; y++) for (let x = 0; x < Wd; x++) {
+    const n = hash(x >> 2, y >> 2, 3) % 100 + B4[y & 3][x & 3] * 40;
+    R(b, x, y, 1, 1, n > 62 ? '#5d9c47' : n > 20 ? '#53913f' : '#4a8639');
+  }
+  noise(b, 0, 0, Wd, Ht, ['#6fb455', '#3f7a32'], 0.03, 11);
+  for (let y = 0; y < Ht; y++) {
+    const c = Math.round(riverX(y));
+    for (let x = c - 11; x <= c + 11; x++) {
+      const d = Math.abs(x - c);
+      R(b, x, y, 1, 1, d > 9 ? (hash(x, y, 2) % 5 ? '#c8b47a' : '#b8a46a') : d > 8 ? '#2a5a8a' : hash(x, y >> 1, 4) % 23 === 0 ? '#8ac0ea' : (y + (x >> 2)) % 9 === 0 ? '#4a86c0' : '#3a72b0');
+    }
+  }
+  const ROAD = '#56525e', EDGE = '#3a3640';
+  const hroad = (x0, x1, y) => { R(b, x0, y - 3, x1 - x0, 7, ROAD); R(b, x0, y - 4, x1 - x0, 1, EDGE); R(b, x0, y + 4, x1 - x0, 1, EDGE); for (let x = x0; x < x1; x += 6) R(b, x, y, 3, 1, '#d8c46a'); for (let x = x0 + 14; x < x1; x += 44) lamps.push([x, y - 6]); };
+  const vroad = (x, y0, y1) => { R(b, x - 3, y0, 7, y1 - y0, ROAD); R(b, x - 4, y0, 1, y1 - y0, EDGE); R(b, x + 4, y0, 1, y1 - y0, EDGE); for (let y = y0; y < y1; y += 6) R(b, x, y, 1, 3, '#d8c46a'); for (let y = y0 + 14; y < y1; y += 44) lamps.push([x + 6, y]); };
+  hroad(0, Wd, 130); vroad(240, 18, Ht); vroad(384, 18, Ht); hroad(240, 388, 248);
+  R(b, 236, 127, 9, 7, ROAD); R(b, 380, 127, 9, 7, ROAD); R(b, 236, 245, 9, 7, ROAD); R(b, 380, 245, 9, 7, ROAD);
+  { const c = Math.round(riverX(130)); R(b, c - 13, 125, 27, 1, '#c8a46a'); R(b, c - 13, 135, 27, 1, '#c8a46a'); for (let x = c - 13; x <= c + 13; x += 4) { R(b, x, 124, 1, 2, '#8a6a3a'); R(b, x, 134, 1, 2, '#8a6a3a'); } }
+  // Спальник
+  lot(b, 28, 52, 124, 70);
+  for (const [x, y] of [[34, 56], [94, 56], [34, 88], [94, 88]]) bld(b, x, y, 52, 9, 18, { roof: '#7a7680', wall: '#c8bca8', win: '#3a4458' }, wins);
+  // Центр
+  lot(b, 254, 40, 122, 82);
+  for (const [x, w, d, hh] of [[258, 20, 10, 52], [282, 24, 12, 64], [310, 18, 10, 44], [332, 26, 12, 56], [362, 12, 8, 30]]) bld(b, x, 118 - d - hh, w, d, hh, { roof: '#2a3442', wall: '#4a6a8a', win: '#9fd0ff', wy: 5 }, wins);
+  // Банкетный зал
+  lot(b, 192, 76, 42, 46);
+  bld(b, 196, 82, 34, 12, 22, { roof: '#c8a040', wall: '#e8dcc8', win: '#5a3a2a', wx: 6, wy: 6 }, wins);
+  for (let i = 0; i < 6; i++) R(b, 197 + i * 6, 96, 2, 16, '#fff8e8');
+  R(b, 210, 112, 6, 10, '#b8261a');
+  // Дачи
+  for (let i = 0; i < 6; i++) R(b, 396, 72 + i * 4, 30, 2, i % 2 ? '#6a4a2a' : '#7a5a2a');
+  for (let i = 0; i < 6; i++) R(b, 444, 102 + i * 3, 26, 1, '#3f7a2a');
+  [[398, 46, '#b8402a'], [428, 52, '#3a7a4a'], [454, 44, '#b8402a'], [404, 96, '#3a7a4a'], [436, 84, '#b8402a']].forEach(([x, y, roof]) => bld(b, x, y, 16, 8, 8, { roof, wall: '#e8d8b0', win: '#4a3a2a', wx: 6 }, wins));
+  b.fillStyle = '#c8b48a'; for (let x = 392; x < 476; x += 3) { b.fillRect(x, 40, 1, 2); b.fillRect(x, 118, 1, 2); }
+  // Студгородок
+  lot(b, 20, 146, 120, 100);
+  for (const x of [24, 62, 100]) bld(b, x, 150, 34, 10, 22, { roof: '#5a3a30', wall: '#b8583a', win: '#f2e2b8' }, wins);
+  paint(b, 28, 194, 104, 46, ell(104, 46), '#b8503a', { ol: '#6a2a1a' });
+  paint(b, 38, 200, 84, 34, ell(84, 34), '#4f9a3f', { ol: '#e8e0d0' });
+  R(b, 79, 201, 1, 32, '#e8e0d0');
+  // Промзона
+  lot(b, 392, 140, 84, 112);
+  bld(b, 396, 152, 42, 14, 16, { roof: '#8a8a92', wall: '#a0a0a8', win: '#3a4048', wx: 6, wy: 6 }, wins);
+  for (let x = 396; x < 438; x += 6) for (let k = 0; k < 4; k++) R(b, x + k, 155 - k, 1, k + 1, '#b8b8c0');
+  paint(b, 446, 132, 7, 36, rect(7, 36), '#a84a3a', { ol: '#4a1a10', hi: '#c86a5a' }); R(b, 446, 138, 7, 2, '#f2f2f2'); R(b, 446, 146, 7, 2, '#f2f2f2'); chimneys.push([447, 130]);
+  bld(b, 396, 196, 32, 12, 14, { roof: '#6a7a6a', wall: '#8a948a', win: '#3a4048', wx: 6 }, wins);
+  [[436, 200, '#c8502a'], [450, 200, '#3a6aa8'], [436, 208, '#3f8a3a'], [450, 208, '#c8a02a'], [436, 228, '#3a6aa8'], [452, 232, '#c8502a']].forEach(([x, y, c]) => paint(b, x, y, 13, 7, rect(13, 7), c, { ol: shade(c, -0.5), hi: shade(c, 0.2) }));
+  // Пиццерия
+  lot(b, 246, 134, 46, 42);
+  bld(b, 250, 138, 38, 12, 18, { roof: '#7a2a1e', wall: '#f2e8d4', win: '#3a2a1a', wx: 5, wy: 6 }, wins);
+  for (let x = 250; x < 288; x++) R(b, x, 152, 1, 3, Math.floor((x - 250) / 3) % 2 ? '#f2f2f2' : '#d23a2a');
+  text5(b, 'ПИЦЦА', 254, 140, '#f6c445', '#3a0a06');
+  // Оптовка
+  lot(b, 296, 196, 80, 46);
+  bld(b, 300, 200, 52, 14, 14, { roof: '#3a6a9a', wall: '#c8c0b0', win: '#4a4a52', wx: 8, wy: 6 }, wins);
+  for (let x = 302; x < 352; x += 3) R(b, x, 201, 1, 12, '#2e5a86');
+  [[358, 222], [366, 222], [358, 214]].forEach(([x, y]) => paint(b, x, y, 8, 8, rect(8, 8), '#b8844a', { ol: '#5a3a1a', hi: '#d8a46a' }));
+  // Парк с лавочкой
+  paint(b, 190, 178, 42, 30, ell(42, 30), '#c8b48a', { ol: '#a8946a' });
+  paint(b, 194, 182, 34, 22, ell(34, 22), '#5d9c47', { ol: false });
+  paint(b, 204, 186, 14, 10, ell(14, 10), '#9a9aa2', { ol: '#5a5a62' }); paint(b, 207, 188, 8, 6, ell(8, 6), '#5aa0e0', { ol: false }); R(b, 210, 189, 2, 2, '#d8f0ff');
+  R(b, 202, 210, 14, 2, '#8a5a3a'); R(b, 202, 208, 14, 1, '#6a4026'); R(b, 203, 212, 1, 2, '#3a2010'); R(b, 214, 212, 1, 2, '#3a2010');
+  [[190, 172], [230, 174], [186, 214], [232, 212], [210, 228], [196, 236], [226, 236]].forEach(([x, y]) => tree(b, x, y, 4));
+  // Деревья по пустырям
+  const lots = [[22, 46, 134, 82], [250, 34, 130, 92], [188, 70, 50, 56], [390, 36, 88, 92], [16, 140, 128, 112], [388, 136, 92, 120], [242, 130, 54, 50], [292, 192, 88, 54], [182, 166, 56, 80]];
+  const blocked = (x, y) => y < 22 || Math.abs(x - riverX(y)) < 15 || Math.abs(y - 130) < 10 || Math.abs(x - 240) < 10 || Math.abs(x - 384) < 10 || (Math.abs(y - 248) < 10 && x > 230 && x < 392) || lots.some(([lx, ly, lw, lh]) => x > lx - 6 && x < lx + lw + 4 && y > ly - 8 && y < ly + lh + 4);
+  const r = rng(77), trees = [];
+  for (let i = 0; i < 260 && trees.length < 70; i++) { const x = 4 + Math.floor(r() * 472), y = 24 + Math.floor(r() * 240); if (!blocked(x, y) && trees.every(([a, c]) => Math.hypot(a - x, c - y) > 9)) trees.push([x, y]); }
+  trees.sort((a, c) => a[1] - c[1]).forEach(([x, y]) => tree(b, x, y, 3 + (hash(x, y, 1) % 3)));
+
+  const night = mk(Wd, Ht), n = night.getContext('2d');
+  n.drawImage(day, 0, 0); n.fillStyle = 'rgba(16,14,48,.72)'; n.fillRect(0, 0, Wd, Ht);
+  wins.forEach(([x, y]) => { if (hash(x, y, 9) % 10 < 6) R(n, x, y, 2, 2, hash(x, y, 2) % 4 ? '#f6c45a' : '#ffe7a0'); });
+  lamps.forEach(([x, y]) => { glow(n, x, y, 10, 'rgba(255,220,140,A)', 0.35); R(n, x, y, 1, 1, '#fff3b8'); });
+  glow(n, 269, 143, 24, 'rgba(255,90,60,A)', 0.4); text5(n, 'ПИЦЦА', 254, 140, '#ff7a5a', '#3a0a06');
+  return { day, night, chimneys };
+}
+
+// Маленький курьер на мопеде для карты. (x, y) — точка на дороге, dir — направление
+export function mapScooter(ctx, x, y, dir, t) {
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y)); if (dir < 0) ctx.scale(-1, 1);
+  const bob = reduce ? 0 : Math.floor(t / 120) % 2;
+  shadow(ctx, 0, 1, 7, 2, 0.35);
+  paint(ctx, -6, -4, 4, 4, ell(4, 4), '#25252c', { ol: '#08080a' }); paint(ctx, 3, -4, 4, 4, ell(4, 4), '#25252c', { ol: '#08080a' });
+  paint(ctx, -5, -7 - bob, 11, 4, rrect(11, 4, 1), '#d23a2a', { ol: '#6a140c', hi: '#ff7a62' });
+  R(ctx, 4, -12 - bob, 1, 5, '#a82a1c'); R(ctx, 3, -12 - bob, 3, 1, '#2c2c34');
+  paint(ctx, -2, -12 - bob, 4, 5, rect(4, 5), '#3a6bb8', { ol: '#15284a' });
+  paint(ctx, -2, -16 - bob, 5, 4, ell(5, 4), '#e0402e', { ol: '#5a120a', hi: '#ff8a72' });
+  paint(ctx, -7, -12 - bob, 5, 5, rect(5, 5), '#c63a2a', { ol: '#5a120a' }); R(ctx, -6, -10 - bob, 2, 1, '#f6c84c');
+  ctx.restore();
+}
+
+/* ---------- Кухня пиццерии ---------- */
+export function kitchenBg() {
+  const Wd = 480, Ht = 270, c = mk(Wd, Ht), b = c.getContext('2d');
+  const WALL = 56;
+  for (let y = 0; y < WALL; y++) for (let x = 0; x < Wd; x++) {
+    const tx = (x + (Math.floor(y / 8) % 2) * 5) % 10, ty = y % 8;
+    R(b, x, y, 1, 1, tx === 0 || ty === 0 ? '#b8aa90' : (B4[y & 3][x & 3] + (ty < 3 ? 0.3 : 0) > 0.25 ? '#f6eedc' : '#ebe0c8'));
+  }
+  // полка с банками
+  R(b, 168, 46, 106, 3, '#6a4026'); R(b, 168, 49, 106, 1, '#3a2010');
+  ['#d8392a', '#f6c84c', '#3f9a49', '#a8643a', '#f2e8cf', '#4b3020', '#e6a83a'].forEach((col, i) => { const x = 172 + i * 14; paint(b, x, 32, 11, 14, rrect(11, 14, 2), '#cfe0e8', { ol: '#5a6a72', hi: '#ffffff' }); R(b, x + 2, 37, 7, 8, col); R(b, x + 1, 30, 9, 3, '#8a5a3a'); });
+  // неоновая вывеска и часы
+  glow(b, 316, 36, 40, 'rgba(255,80,60,A)', 0.22);
+  paint(b, 282, 26, 64, 20, rrect(64, 20, 3), '#2a1a20', { ol: '#0e0a12' });
+  text5(b, 'ПИЦЦА', 300, 32, '#ff6a50', '#5a120a');
+  paint(b, 354, 26, 20, 20, ell(20, 20), '#f8f6f2', { ol: '#3a2a1a', hi: '#ffffff' }); R(b, 363, 29, 1, 8, '#1a1220'); R(b, 363, 36, 6, 1, '#1a1220'); R(b, 363, 36, 2, 2, '#e2513b');
+  // печь
+  paint(b, 384, 4, 92, WALL - 4, rect(92, WALL - 4), '#9a4a2a', { ol: '#3a160c' });
+  for (let y = 4; y < WALL; y += 5) for (let x = 384 + ((y / 5) % 2) * 6; x < 476; x += 12) { R(b, x, y, 1, 5, '#6a2a16'); R(b, x, y, 12, 1, '#6a2a16'); }
+  paint(b, 404, 22, 52, 34, (a, c2) => ell(52, 40)(a, c2) || c2 > 20, '#1a0c08', { ol: '#3a160c' });
+  glow(b, 430, 52, 28, 'rgba(255,140,40,A)', 0.55);
+  for (let i = 0; i < 8; i++) { const fx = 408 + i * 6, fh = 6 + hash(i, 1, 7) % 8; paint(b, fx, WALL - fh, 5, fh, (a, c2) => Math.abs(a - 2) <= c2 * 0.4, i % 2 ? '#f6c445' : '#e2733b', { ol: false }); }
+  // край столешницы и сама столешница
+  R(b, 0, WALL, Wd, 6, '#4a2a16'); R(b, 0, WALL, Wd, 1, '#7a4a2a');
+  const top = WALL + 6;
+  for (let y = top; y < Ht; y++) for (let x = 0; x < Wd; x++) {
+    const row = Math.floor((y - top) / 12), seam = (y - top) % 12 === 11 || (x + row * 37) % 96 === 0;
+    const base = ['#a8743f', '#9a683a', '#b07c48'][row % 3];
+    const grain = Math.sin(x * 0.07 + row * 3 + Math.sin(x * 0.013) * 4) > 0.82;
+    R(b, x, y, 1, 1, seam ? '#5a3a22' : grain ? shade(base, -0.12) : B4[y & 3][x & 3] > 0.4 ? shade(base, 0.05) : base);
+  }
+  // мука и разделочная доска под пиццей (пицца стоит в 170,58 размером 140)
+  noise(b, 150, 60, 180, 150, ['#f4ece0', '#e8dcc8'], 0.04, 8);
+  paint(b, 168, 56, 144, 144, ell(144, 144), '#c8925a', { ol: '#5a3418', hi: '#e0b07a', lo: '#a87440' });
+  paint(b, 310, 122, 18, 10, rrect(18, 10, 3), '#c8925a', { ol: '#5a3418', hi: '#e0b07a' }); R(b, 320, 126, 3, 2, '#5a3418');
+  return c;
+}
+
+// Иконки 16×16 для теста и бортика в магазине
+export function baseIcon(kind) {
+  const c = mk(16, 16); c.className = 'px'; const x = c.getContext('2d');
+  if (kind === 'dough') { paint(x, 1, 3, 14, 11, ell(14, 11), '#f2dcae', { ol: '#8a6a3a', hi: '#fff4d8', lo: '#d8bc88' }); R(x, 5, 6, 2, 1, '#fff8e8'); }
+  else { paint(x, 1, 1, 14, 14, (a, b) => ell(14, 14)(a, b) && !ell(8, 8)(a - 3, b - 3), '#d8913f', { ol: '#6d3a14', hi: '#f6cd85' }); [[3, 5], [10, 3], [12, 10], [4, 11]].forEach(([a, b]) => R(x, a, b, 1, 1, '#ffe17a')); }
+  return c;
+}
