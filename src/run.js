@@ -46,12 +46,22 @@ function guestSpec(r, arch, day, name, extra = {}) {
   return { arch, name: name || pick(r, FIRST), hunger, seed: Math.floor(r() * 1e6), ...extra };
 }
 
+// Имена внутри одного заказа не повторяются
+function uniqueNames(r, guests) {
+  const seen = new Set();
+  for (const g of guests) {
+    if (seen.has(g.name)) { const free = FIRST.filter(n => !seen.has(n)); if (free.length) g.name = pick(r, free); }
+    seen.add(g.name);
+  }
+  return guests;
+}
+
 export function makeOrder(run, r) {
   const d = run.day;
   const district = pick(r, DISTRICTS);
   const minG = 1 + Math.floor(d / 3), maxG = 3 + Math.floor(d / 2);
   const n = between(r, [minG, Math.min(6, maxG)]);
-  const guests = Array.from({ length: n }, () => guestSpec(r, pick(r, district.pool), d));
+  const guests = uniqueNames(r, Array.from({ length: n }, () => guestSpec(r, pick(r, district.pool), d)));
   let hours = district.hours; if (hours >= 3 && lvl(run, 'garage')) hours -= 1;
   const pay = Math.round((120 + 55 * n) * district.pay * (1 + 0.1 * d) / 10) * 10;
   return { kind: 'order', title: titleFor(r, district, guests), district: district.name, hours, pay, guests, seatOffset: r() * Math.PI * 2 };
@@ -66,7 +76,7 @@ function titleFor(r, district, guests) {
 
 export function makeBoss(run, r) {
   const b = BOSSES[run.day];
-  const guests = b.guests.map(([arch, name, extra]) => guestSpec(r, arch, run.day, name, { hungerMul: 0.85, ...(extra || {}) }));
+  const guests = uniqueNames(r, b.guests.map(([arch, name, extra]) => guestSpec(r, arch, run.day, name, { hungerMul: 0.85, ...(extra || {}) })));
   return { kind: 'boss', title: b.title, district: 'Банкетный зал', hours: b.hours, pay: Math.round((150 + 70 * guests.length) * b.pay / 10) * 10, guests, text: b.text, seatOffset: r() * Math.PI * 2 };
 }
 
