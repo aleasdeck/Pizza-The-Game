@@ -5,6 +5,6 @@
   "scripts": {
     "start": "python3 -m http.server 8000",
     "test": "node --test tests/*.test.mjs",
-    "balance": "node tests/balance.mjs 30"
+    "balance": "node tests/balance.mjs 300"
   }
 }
